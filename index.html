@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>horizon</title>
+    <style>
+      :root { color-scheme: dark; }
+      html, body {
+        margin: 0; padding: 0; height: 100%; width: 100%;
+        background: #000; overflow: hidden;
+        font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        color: #e8e8e8;
+      }
+      #stage {
+        position: fixed; inset: 0;
+        display: block; width: 100vw; height: 100vh;
+      }
+      #overlay-root { position: fixed; inset: 0; pointer-events: none; }
+    </style>
+  </head>
+  <body>
+    <canvas id="stage"></canvas>
+    <div id="overlay-root"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
