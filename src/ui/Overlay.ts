@@ -9,7 +9,7 @@ import {
   button,
   buttonRow,
   gradientEditor,
-  waveAmpEditor,
+  perWaveEditor,
 } from "./controls.js";
 import {
   deleteNamedConfig,
@@ -119,6 +119,11 @@ const CSS = `
 .overlay-panel .ctl-grad-rm:hover:not(:disabled) { background: rgba(255,80,80,0.18); color: #fff; border-color: rgba(255,80,80,0.4); }
 .overlay-panel .ctl-grad-rm:disabled { opacity: 0.3; cursor: not-allowed; }
 .overlay-panel .ctl-grad-add { align-self: flex-start; flex: 0 0 auto; padding: 4px 10px; }
+.overlay-panel .ctl-perwave-title {
+  font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: rgba(255,255,255,0.5); margin: 12px 0 6px; font-weight: 500;
+}
+.overlay-panel .ctl-perwave .ctl-perwave-title:first-child { margin-top: 0; }
 `;
 
 export interface OverlayHandles {
@@ -150,8 +155,8 @@ export const mountOverlay = (
   const set = state.set.bind(state);
   const disposers: Array<() => void> = [];
 
-  const ampEditor = waveAmpEditor(state);
-  disposers.push(ampEditor.dispose);
+  const waveRowEditor = perWaveEditor(state);
+  disposers.push(waveRowEditor.dispose);
 
   const syncFromState: Array<() => void> = [];
 
@@ -291,7 +296,7 @@ export const mountOverlay = (
     ),
   );
 
-  panel.appendChild(collapsibleSection("Per-wave amplitude", true, ampEditor.el));
+  panel.appendChild(collapsibleSection("Per wave (amplitude & wavelength)", true, waveRowEditor.el));
 
   const sPer = slider({
     label: "per wave",

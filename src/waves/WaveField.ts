@@ -115,10 +115,11 @@ export class WaveField {
       const seen = layerSeen[s.waveIndex]!++;
       const t = n <= 1 ? 0.5 : seen / (n - 1);
       const ampMul = p.waveAmps[layer.waveRow] ?? 1;
+      const lenMul = p.waveLengths[layer.waveRow] ?? 1;
       const sample = sampleArc({
         t,
         phase: this.phase + layer.phaseOffset,
-        freq: layer.freq,
+        freq: layer.freq / Math.max(0.12, lenMul),
         amplitude: p.amplitude * layer.ampScale * ampMul,
         centerY: p.fieldOffsetY + layer.rowT * span,
         width: this.width,

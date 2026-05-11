@@ -22,6 +22,7 @@ export class State {
   params: Params = {
     ...defaults,
     waveAmps: [...defaults.waveAmps],
+    waveLengths: [...defaults.waveLengths],
     gradient: defaults.gradient.map((s) => ({ ...s })),
   };
   private listeners = new Set<Listener>();
@@ -49,6 +50,7 @@ export class State {
     this.params = {
       ...next,
       waveAmps: [...next.waveAmps],
+      waveLengths: [...next.waveLengths],
       gradient: next.gradient.map((s) => ({ ...s })),
     };
     this.emit(new Set(Object.keys(this.params) as ParamKey[]));

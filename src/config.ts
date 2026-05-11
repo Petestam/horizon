@@ -13,6 +13,8 @@ export interface Params {
   waves: number;
   /** Per-wave amplitude multiplier; length is MAX_WAVES, indices >= waves ignored. Negatives invert the arc. */
   waveAmps: number[];
+  /** Per-wave wavelength multiplier; length is MAX_WAVES. 1 = default row; higher = longer waves (lower spatial frequency). */
+  waveLengths: number[];
   strandsPerWave: number;
   amplitude: number;
   phaseSpeed: number;
@@ -43,6 +45,7 @@ export const HIGHLIGHT_CAP = 6;
 export const defaults: Params = {
   waves: 4,
   waveAmps: new Array(MAX_WAVES).fill(1),
+  waveLengths: new Array(MAX_WAVES).fill(1),
   strandsPerWave: 90,
   amplitude: 0.18,
   phaseSpeed: 0.05,

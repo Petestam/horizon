@@ -1,10 +1,10 @@
 import type { Params } from "../config.js";
-import { hexToRgb, lerpRgb, parseGradient, rgbToCss } from "../util/color.js";
+import { hexToRgb, rgbToCss } from "../util/color.js";
 
 /**
- * Paints the time-invariant background layers — base wash, soft vignette, and
- * a subtle pulse-wall band — to an offscreen canvas. Recomputed only on
- * resize or when color/vignette/pulse parameters change.
+ * Paints the time-invariant background layers — flat background, neutral
+ * pulse-wall band, and a soft vignette. The strand gradient is intentionally
+ * scoped to the strands themselves and never bled into the background.
  */
 export const paintStatic = (
   target: HTMLCanvasElement,
@@ -24,24 +24,12 @@ export const paintStatic = (
   ctx.fillStyle = rgbToCss(bg, 1);
   ctx.fillRect(0, 0, cssW, cssH);
 
-  const stops = parseGradient(p.gradient);
-
-  // Soft atmospheric wash that mirrors the operator's gradient stops, blended
-  // toward the background and dimmed so the field strands stay the focal layer.
-  const wash = ctx.createLinearGradient(0, 0, 0, cssH);
-  for (const s of stops) {
-    wash.addColorStop(s.offset, rgbToCss(lerpRgb(bg, s.rgb, 0.45), s.alpha * 0.32));
-  }
-  ctx.fillStyle = wash;
-  ctx.fillRect(0, 0, cssW, cssH);
-
   const bandY = p.pulseBandY * cssH;
   const bandH = Math.max(2, p.pulseBandHeight * cssH);
-  const bandColor = stops[0]?.rgb ?? [255, 255, 255];
   const band = ctx.createLinearGradient(0, bandY - bandH, 0, bandY + bandH);
-  band.addColorStop(0, rgbToCss(bandColor, 0));
-  band.addColorStop(0.5, rgbToCss(bandColor, 0.05));
-  band.addColorStop(1, rgbToCss(bandColor, 0));
+  band.addColorStop(0, "rgba(255,255,255,0)");
+  band.addColorStop(0.5, "rgba(255,255,255,0.04)");
+  band.addColorStop(1, "rgba(255,255,255,0)");
   ctx.fillStyle = band;
   ctx.fillRect(0, bandY - bandH, cssW, bandH * 2);
 

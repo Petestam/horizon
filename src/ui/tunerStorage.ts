@@ -23,7 +23,12 @@ const isGradientStop = (x: unknown): x is GradientStop => {
 export function coerceParams(raw: unknown): Params | null {
   if (!raw || typeof raw !== "object") return null;
   const o = raw as Record<string, unknown>;
-  const base = { ...defaults, waveAmps: [...defaults.waveAmps], gradient: defaults.gradient.map((s) => ({ ...s })) };
+  const base = {
+    ...defaults,
+    waveAmps: [...defaults.waveAmps],
+    waveLengths: [...defaults.waveLengths],
+    gradient: defaults.gradient.map((s) => ({ ...s })),
+  };
 
   const num = (v: unknown, fallback: number): number =>
     typeof v === "number" && Number.isFinite(v) ? v : fallback;
@@ -53,6 +58,13 @@ export function coerceParams(raw: unknown): Params | null {
     for (let i = 0; i < MAX_WAVES; i++) {
       const v = o.waveAmps[i];
       base.waveAmps[i] = typeof v === "number" && Number.isFinite(v) ? clamp(v, -1.5, 1.5) : base.waveAmps[i]!;
+    }
+  }
+
+  if (Array.isArray(o.waveLengths)) {
+    for (let i = 0; i < MAX_WAVES; i++) {
+      const v = o.waveLengths[i];
+      base.waveLengths[i] = typeof v === "number" && Number.isFinite(v) ? clamp(v, 0.12, 4) : base.waveLengths[i]!;
     }
   }
 
@@ -125,6 +137,7 @@ export function putNamedConfig(name: string, p: Params): void {
   map[name] = {
     ...p,
     waveAmps: [...p.waveAmps],
+    waveLengths: [...p.waveLengths],
     gradient: p.gradient.map((s) => ({ ...s })),
   };
   writeNamedMap(map);

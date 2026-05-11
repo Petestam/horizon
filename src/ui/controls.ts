@@ -253,35 +253,57 @@ export const gradientEditor = ({ stops, onChange }: GradientEditorSpec): Gradien
   return { el: wrap, sync };
 };
 
-export const waveAmpEditor = (
+export const perWaveEditor = (
   state: State,
 ): { el: HTMLElement; dispose: () => void } => {
   const wrap = document.createElement("div");
-  wrap.className = "ctl-wamp";
+  wrap.className = "ctl-perwave";
 
   const renderRows = () => {
     wrap.replaceChildren();
     const n = state.params.waves;
     const amps = state.params.waveAmps;
+    const lens = state.params.waveLengths;
     for (let i = 0; i < n; i++) {
-      const row = slider({
-        label: `wave ${i + 1}`,
-        min: -1.5,
-        max: 1.5,
-        step: 0.05,
-        value: amps[i] ?? 1,
-        onChange: (v) => {
-          const next = state.params.waveAmps.slice();
-          next[i] = v;
-          state.set("waveAmps", next);
-        },
-      });
-      wrap.appendChild(row.el);
+      const title = document.createElement("div");
+      title.className = "ctl-perwave-title";
+      title.textContent = `wave ${i + 1}`;
+      wrap.appendChild(title);
+
+      wrap.appendChild(
+        slider({
+          label: "amplitude",
+          min: -1.5,
+          max: 1.5,
+          step: 0.05,
+          value: amps[i] ?? 1,
+          onChange: (v) => {
+            const next = state.params.waveAmps.slice();
+            next[i] = v;
+            state.set("waveAmps", next);
+          },
+        }).el,
+      );
+
+      wrap.appendChild(
+        slider({
+          label: "wavelength",
+          min: 0.12,
+          max: 4,
+          step: 0.05,
+          value: lens[i] ?? 1,
+          onChange: (v) => {
+            const next = state.params.waveLengths.slice();
+            next[i] = v;
+            state.set("waveLengths", next);
+          },
+        }).el,
+      );
     }
   };
 
   const dispose = state.subscribe((changed) => {
-    if (changed.has("waves") || changed.has("waveAmps")) renderRows();
+    if (changed.has("waves") || changed.has("waveAmps") || changed.has("waveLengths")) renderRows();
   });
   renderRows();
   return { el: wrap, dispose };
