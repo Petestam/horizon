@@ -34,7 +34,8 @@ export const paintStatic = (
   ctx.fillRect(0, bandY - bandH, cssW, bandH * 2);
 
   const vCx = cssW / 2;
-  const vCy = cssH * 0.55;
+  // Sit slightly above center to mirror the canvas flip (towers anchor the bottom).
+  const vCy = cssH * 0.45;
   const vR = Math.hypot(cssW, cssH) * 0.7;
   const vignette = ctx.createRadialGradient(vCx, vCy, vR * 0.45, vCx, vCy, vR);
   vignette.addColorStop(0, rgbToCss(bg, 0));

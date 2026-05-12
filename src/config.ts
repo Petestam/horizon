@@ -9,12 +9,29 @@ export interface GradientStop {
 
 export const MAX_WAVES = 6;
 
+export interface BehaviorFlags {
+  /** Per-strand spring memory: y0 lags then settles toward sampled target. */
+  spring: boolean;
+  /** 1-D smoothing along each row so disturbances travel between neighbors. */
+  couple: boolean;
+  /** Drifting attention point that gently tugs the field where it "looks". */
+  intent: boolean;
+  /** Tower fires + label spawns push an upward impulse into the target strand. */
+  reactive: boolean;
+  /** Irrational-ratio sine stack modulates freq + amplitude so motion never exactly repeats. */
+  breathe: boolean;
+  /** Slow FSM (calm/curious/alert) scaling phase speed + amplitude. */
+  mood: boolean;
+}
+
 export interface Params {
   waves: number;
   /** Per-wave amplitude multiplier; length is MAX_WAVES, indices >= waves ignored. Negatives invert the arc. */
   waveAmps: number[];
   /** Per-wave wavelength multiplier; length is MAX_WAVES. 1 = default row; higher = longer waves (lower spatial frequency). */
   waveLengths: number[];
+  /** Per-wave horizontal direction; length is MAX_WAVES. -1 reverse, 0 still, 1 forward. */
+  waveDirs: number[];
   strandsPerWave: number;
   amplitude: number;
   phaseSpeed: number;
@@ -35,6 +52,15 @@ export interface Params {
   gradient: GradientStop[];
   bgColor: string;
   labelsEnabled: boolean;
+  towersEnabled: boolean;
+  /** Mean seconds between connection spawns across the 3 towers. */
+  towerSpawnInterval: number;
+  /** Seconds for the gradient comet to travel origin → endpoint. */
+  towerPulseDur: number;
+  /** Seconds for one chase-dot cycle along the path. */
+  towerChasePeriod: number;
+  /** Opt-in agentic behaviors; defaults are all off so the baseline is unchanged. */
+  behaviors: BehaviorFlags;
 }
 
 export const MIN_GRADIENT_STOPS = 4;
@@ -46,6 +72,7 @@ export const defaults: Params = {
   waves: 4,
   waveAmps: new Array(MAX_WAVES).fill(1),
   waveLengths: new Array(MAX_WAVES).fill(1),
+  waveDirs: new Array(MAX_WAVES).fill(1),
   strandsPerWave: 90,
   amplitude: 0.18,
   phaseSpeed: 0.05,
@@ -71,4 +98,16 @@ export const defaults: Params = {
   ],
   bgColor: "#000000",
   labelsEnabled: true,
+  towersEnabled: true,
+  towerSpawnInterval: 1.2,
+  towerPulseDur: 2.5,
+  towerChasePeriod: 4.0,
+  behaviors: {
+    spring: false,
+    couple: false,
+    intent: false,
+    reactive: false,
+    breathe: false,
+    mood: false,
+  },
 };

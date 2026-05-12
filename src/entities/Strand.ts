@@ -15,6 +15,10 @@ export class Strand {
   waveIndex = 0;
   age = 0;
   highlighted = false;
+  /** Spring velocity in px/s; only meaningful when behaviors.spring is on. */
+  vy = 0;
+  /** One-shot impulse (px/s) from towers or labels; consumed each frame when behaviors.reactive is on. */
+  kick = 0;
 
   reset(): void {
     this.x = 0;
@@ -30,6 +34,8 @@ export class Strand {
     this.waveIndex = 0;
     this.age = 0;
     this.highlighted = false;
+    this.vy = 0;
+    this.kick = 0;
   }
 }
 

@@ -23,7 +23,9 @@ export class State {
     ...defaults,
     waveAmps: [...defaults.waveAmps],
     waveLengths: [...defaults.waveLengths],
+    waveDirs: [...defaults.waveDirs],
     gradient: defaults.gradient.map((s) => ({ ...s })),
+    behaviors: { ...defaults.behaviors },
   };
   private listeners = new Set<Listener>();
 
@@ -51,7 +53,9 @@ export class State {
       ...next,
       waveAmps: [...next.waveAmps],
       waveLengths: [...next.waveLengths],
+      waveDirs: [...(next.waveDirs ?? defaults.waveDirs)],
       gradient: next.gradient.map((s) => ({ ...s })),
+      behaviors: { ...defaults.behaviors, ...(next.behaviors ?? {}) },
     };
     this.emit(new Set(Object.keys(this.params) as ParamKey[]));
   }

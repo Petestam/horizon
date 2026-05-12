@@ -11,12 +11,14 @@ import { runLoop } from "./loop.js";
 import { effectiveDpr } from "./util/dpr.js";
 import { mountOverlay } from "./ui/Overlay.js";
 import { loadLastParams } from "./ui/tunerStorage.js";
+import { TowerController, type TowerParams } from "./towers/Tower.js";
 
 export class App {
   readonly state = new State();
   readonly bus = new EventBus();
   private renderer: Renderer;
   private field = new WaveField();
+  private towers = new TowerController();
   private highlights = new ObjectPool<Highlight>(createHighlight, resetHighlight, HIGHLIGHT_CAP);
   private overlay: ReturnType<typeof mountOverlay>;
   private cssW = 0;
@@ -33,6 +35,8 @@ export class App {
     this.overlay = mountOverlay(overlayRoot, this.state, {
       fireTestLabel: () => this.fireTestLabel(),
       clearLabels: () => this.clearLabels(),
+      fireTower: () => this.fireTower(),
+      clearTowers: () => this.clearTowers(),
     });
 
     this.applyResize();
@@ -41,7 +45,10 @@ export class App {
 
     this.state.subscribe((changed) => {
       this.renderer.paramsChanged(this.state.params, isColorChange(changed));
-      if (isCountChange(changed)) this.field.rebuild(this.state.params);
+      if (isCountChange(changed)) {
+        this.field.rebuild(this.state.params);
+        this.towers.clear();
+      }
     });
 
     window.addEventListener("resize", () => this.applyResize());
@@ -61,6 +68,24 @@ export class App {
 
   clearLabels(): void {
     for (const h of this.highlights.getActive().slice()) this.highlights.release(h);
+  }
+
+  fireTower(): void {
+    this.towers.fireOne(this.field.pool.getActive(), this.towerParams());
+  }
+
+  clearTowers(): void {
+    this.towers.clear();
+  }
+
+  private towerParams(): TowerParams {
+    const p = this.state.params;
+    return {
+      enabled: p.towersEnabled,
+      spawnInterval: p.towerSpawnInterval,
+      pulseDur: p.towerPulseDur,
+      chasePeriod: p.towerChasePeriod,
+    };
   }
 
   start(): void {
@@ -84,6 +109,7 @@ export class App {
     this.dpr = effectiveDpr();
     this.renderer.resize(this.cssW, this.cssH, this.dpr);
     this.field.resize(this.cssW, this.cssH);
+    this.towers.resize(this.cssW, this.cssH);
     this.overlay.setRendererInfo(
       this.renderer.name,
       Math.round(this.cssW * this.dpr),
@@ -100,11 +126,13 @@ export class App {
     const h = this.highlights.acquire();
     if (!h) return;
     h.init(target, label, ttlMs);
+    target.kick -= 50;
   }
 
   private update(dt: number): void {
     const p: Params = this.state.params;
     this.field.step(dt, p);
+    this.towers.step(dt, this.field.pool.getActive(), this.towerParams());
     for (const h of this.highlights.getActive().slice()) {
       h.step(dt);
       if (h.dead) this.highlights.release(h);
@@ -114,6 +142,7 @@ export class App {
   private render(): void {
     this.renderer.beginFrame();
     this.renderer.drawStrands(this.field.pool.getActive());
+    this.renderer.drawTowers(this.towers.towers);
     this.renderer.drawHighlights(this.highlights.getActive());
     this.renderer.endFrame();
     this.overlay.setStrandCount(this.field.pool.activeCount);

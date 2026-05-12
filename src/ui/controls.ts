@@ -264,6 +264,7 @@ export const perWaveEditor = (
     const n = state.params.waves;
     const amps = state.params.waveAmps;
     const lens = state.params.waveLengths;
+    const dirs = state.params.waveDirs;
     for (let i = 0; i < n; i++) {
       const title = document.createElement("div");
       title.className = "ctl-perwave-title";
@@ -299,11 +300,33 @@ export const perWaveEditor = (
           },
         }).el,
       );
+
+      wrap.appendChild(
+        slider({
+          label: "direction",
+          min: -1,
+          max: 1,
+          step: 1,
+          value: dirs[i] ?? 1,
+          onChange: (v) => {
+            const next = state.params.waveDirs.slice();
+            next[i] = v;
+            state.set("waveDirs", next);
+          },
+        }).el,
+      );
     }
   };
 
   const dispose = state.subscribe((changed) => {
-    if (changed.has("waves") || changed.has("waveAmps") || changed.has("waveLengths")) renderRows();
+    if (
+      changed.has("waves") ||
+      changed.has("waveAmps") ||
+      changed.has("waveLengths") ||
+      changed.has("waveDirs")
+    ) {
+      renderRows();
+    }
   });
   renderRows();
   return { el: wrap, dispose };

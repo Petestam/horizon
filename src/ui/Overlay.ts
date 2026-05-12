@@ -1,5 +1,5 @@
 import type { State } from "../state.js";
-import { MAX_WAVES } from "../config.js";
+import { MAX_WAVES, type BehaviorFlags } from "../config.js";
 import {
   slider,
   color,
@@ -136,6 +136,8 @@ export interface OverlayHandles {
 export interface OverlayActions {
   fireTestLabel: () => void;
   clearLabels: () => void;
+  fireTower: () => void;
+  clearTowers: () => void;
 }
 
 export const mountOverlay = (
@@ -440,6 +442,29 @@ export const mountOverlay = (
 
   panel.appendChild(collapsibleSection("Motion", true, mSpeed.el, mAlpha.el));
 
+  const behaviorToggle = (key: keyof BehaviorFlags, label: string): HTMLElement => {
+    const t = toggle({
+      label,
+      value: state.params.behaviors[key],
+      onChange: (v) => set("behaviors", { ...state.params.behaviors, [key]: v }),
+    });
+    syncFromState.push(() => t.sync(state.params.behaviors[key]));
+    return t.el;
+  };
+
+  panel.appendChild(
+    collapsibleSection(
+      "Behaviors",
+      true,
+      behaviorToggle("spring", "memory (spring)"),
+      behaviorToggle("couple", "coupling (neighbors)"),
+      behaviorToggle("intent", "intent (attention)"),
+      behaviorToggle("reactive", "reactive (event nudge)"),
+      behaviorToggle("breathe", "breathe (modulation)"),
+      behaviorToggle("mood", "mood (FSM)"),
+    ),
+  );
+
   const labelsToggle = toggle({
     label: "enabled",
     value: p.labelsEnabled,
@@ -461,6 +486,64 @@ export const mountOverlay = (
           actions.fireTestLabel();
         }),
         button("Clear all", () => actions.clearLabels()),
+      ),
+    ),
+  );
+
+  const towersToggle = toggle({
+    label: "enabled",
+    value: p.towersEnabled,
+    onChange: (v) => {
+      set("towersEnabled", v);
+      if (!v) actions.clearTowers();
+    },
+  });
+  syncFromState.push(() => towersToggle.sync(state.params.towersEnabled));
+
+  const tSpawn = slider({
+    label: "spawn interval",
+    min: 0.3,
+    max: 4,
+    step: 0.1,
+    value: p.towerSpawnInterval,
+    onChange: (v) => set("towerSpawnInterval", v),
+  });
+  syncFromState.push(() => tSpawn.sync(state.params.towerSpawnInterval));
+
+  const tPulse = slider({
+    label: "pulse duration",
+    min: 0.8,
+    max: 6,
+    step: 0.1,
+    value: p.towerPulseDur,
+    onChange: (v) => set("towerPulseDur", v),
+  });
+  syncFromState.push(() => tPulse.sync(state.params.towerPulseDur));
+
+  const tChase = slider({
+    label: "chase period",
+    min: 1,
+    max: 10,
+    step: 0.1,
+    value: p.towerChasePeriod,
+    onChange: (v) => set("towerChasePeriod", v),
+  });
+  syncFromState.push(() => tChase.sync(state.params.towerChasePeriod));
+
+  panel.appendChild(
+    collapsibleSection(
+      "Control towers",
+      true,
+      towersToggle.el,
+      tSpawn.el,
+      tPulse.el,
+      tChase.el,
+      buttonRow(
+        button("Fire one", () => {
+          if (!state.params.towersEnabled) state.set("towersEnabled", true);
+          actions.fireTower();
+        }),
+        button("Clear all", () => actions.clearTowers()),
       ),
     ),
   );
