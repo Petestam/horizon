@@ -5,6 +5,7 @@ import {
   color,
   collapsibleSection,
   readout,
+  textInput,
   toggle,
   button,
   buttonRow,
@@ -77,6 +78,12 @@ const CSS = `
 .overlay-panel .sec-collapsible-body { padding-bottom: 2px; }
 .overlay-panel .ctl { display: grid; grid-template-columns: 1fr auto; gap: 6px 10px; align-items: center; padding: 4px 0; }
 .overlay-panel .ctl-slider { grid-template-columns: 90px 1fr 40px; }
+.overlay-panel .ctl-text { grid-template-columns: 1fr; gap: 4px; align-items: stretch; }
+.overlay-panel .ctl-text input[type=text] {
+  width: 100%; box-sizing: border-box;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
+  color: #e8e8e8; border-radius: 4px; padding: 6px 8px; font: inherit;
+}
 .overlay-panel .ctl-name { color: rgba(255,255,255,0.7); }
 .overlay-panel .ctl-val { color: rgba(255,255,255,0.55); font-variant-numeric: tabular-nums; text-align: right; }
 .overlay-panel input[type=range] { width: 100%; accent-color: #c0b8ff; }
@@ -475,11 +482,24 @@ export const mountOverlay = (
   });
   syncFromState.push(() => labelsToggle.sync(state.params.labelsEnabled));
 
+  const labelCopy = textInput({
+    label: "pill text",
+    value: p.labelText,
+    placeholder: "test · operator",
+    onChange: (v) =>
+      set(
+        "labelText",
+        v.replace(/[\u0000-\u001f\u007f]/g, "").slice(0, 128),
+      ),
+  });
+  syncFromState.push(() => labelCopy.sync(state.params.labelText));
+
   panel.appendChild(
     collapsibleSection(
       "Labels",
       true,
       labelsToggle.el,
+      labelCopy.el,
       buttonRow(
         button("Fire test", () => {
           if (!state.params.labelsEnabled) state.set("labelsEnabled", true);
@@ -521,7 +541,7 @@ export const mountOverlay = (
   syncFromState.push(() => tPulse.sync(state.params.towerPulseDur));
 
   const tChase = slider({
-    label: "chase period",
+    label: "comet lap",
     min: 1,
     max: 10,
     step: 0.1,

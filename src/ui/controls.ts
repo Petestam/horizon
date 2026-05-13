@@ -388,3 +388,43 @@ export const readout = (label: string): { el: HTMLElement; set: (v: string) => v
   row.append(name, val);
   return { el: row, set: (v) => (val.textContent = v) };
 };
+
+export interface TextInputSpec {
+  label: string;
+  value: string;
+  placeholder?: string;
+  maxLength?: number;
+  onChange: (v: string) => void;
+}
+
+export interface TextInputCtrl {
+  el: HTMLElement;
+  sync: (value: string) => void;
+}
+
+export const textInput = ({
+  label,
+  value,
+  placeholder,
+  maxLength = 128,
+  onChange,
+}: TextInputSpec): TextInputCtrl => {
+  const row = document.createElement("label");
+  row.className = "ctl ctl-text";
+  const name = document.createElement("span");
+  name.className = "ctl-name";
+  name.textContent = label;
+  const input = document.createElement("input");
+  input.type = "text";
+  input.maxLength = maxLength;
+  input.autocomplete = "off";
+  input.spellcheck = false;
+  if (placeholder) input.placeholder = placeholder;
+  const sync = (v: string) => {
+    input.value = v;
+  };
+  input.addEventListener("input", () => onChange(input.value));
+  sync(value);
+  row.append(name, input);
+  return { el: row, sync };
+};

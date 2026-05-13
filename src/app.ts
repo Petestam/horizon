@@ -13,6 +13,15 @@ import { mountOverlay } from "./ui/Overlay.js";
 import { loadLastParams } from "./ui/tunerStorage.js";
 import { TowerController, type TowerParams } from "./towers/Tower.js";
 
+/** Stage content is always this width ÷ height (letterboxed to the window). */
+const STAGE_ASPECT = 12 / 5;
+
+const stageCssSize = (vw: number, vh: number): { cssW: number; cssH: number } => {
+  if (vw <= 0 || vh <= 0) return { cssW: 1, cssH: 1 };
+  if (vw / vh > STAGE_ASPECT) return { cssW: vh * STAGE_ASPECT, cssH: vh };
+  return { cssW: vw, cssH: vw / STAGE_ASPECT };
+};
+
 export class App {
   readonly state = new State();
   readonly bus = new EventBus();
@@ -59,9 +68,10 @@ export class App {
   }
 
   fireTestLabel(): void {
+    const t = this.state.params.labelText.trim();
     this.bus.emit("kiosk:event", {
       id: `manual-${Date.now()}`,
-      label: "test · operator",
+      label: t.length > 0 ? t : "test · operator",
       ttlMs: 4000,
     });
   }
@@ -89,7 +99,12 @@ export class App {
   }
 
   start(): void {
-    this.stopMock = startKioskMock(this.bus);
+    this.stopMock = startKioskMock(this.bus, {
+      getLabel: () => {
+        const t = this.state.params.labelText.trim();
+        return t.length > 0 ? t : "test · operator";
+      },
+    });
     this.stopLoop = runLoop({
       update: (dt) => this.update(dt),
       render: () => this.render(),
@@ -104,8 +119,9 @@ export class App {
   }
 
   private applyResize(): void {
-    this.cssW = window.innerWidth;
-    this.cssH = window.innerHeight;
+    const { cssW, cssH } = stageCssSize(window.innerWidth, window.innerHeight);
+    this.cssW = cssW;
+    this.cssH = cssH;
     this.dpr = effectiveDpr();
     this.renderer.resize(this.cssW, this.cssH, this.dpr);
     this.field.resize(this.cssW, this.cssH);

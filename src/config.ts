@@ -52,12 +52,14 @@ export interface Params {
   gradient: GradientStop[];
   bgColor: string;
   labelsEnabled: boolean;
+  /** Copy shown on label pills (test button + synthetic kiosk events). Realtime/socket events still send their own text. */
+  labelText: string;
   towersEnabled: boolean;
   /** Mean seconds between connection spawns across the 3 towers. */
   towerSpawnInterval: number;
   /** Seconds for the gradient comet to travel origin → endpoint. */
   towerPulseDur: number;
-  /** Seconds for one chase-dot cycle along the path. */
+  /** Seconds for one comet lap along the path during the chase phase. */
   towerChasePeriod: number;
   /** Opt-in agentic behaviors; defaults are all off so the baseline is unchanged. */
   behaviors: BehaviorFlags;
@@ -98,6 +100,7 @@ export const defaults: Params = {
   ],
   bgColor: "#000000",
   labelsEnabled: true,
+  labelText: "test · operator",
   towersEnabled: true,
   towerSpawnInterval: 1.2,
   towerPulseDur: 2.5,

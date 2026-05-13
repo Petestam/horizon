@@ -91,64 +91,33 @@ const drawDropShadow = (
   ctx.fill();
 };
 
-const drawChaseDot = (
+/**
+ * Bright head at uHead with a soft tail backward along the path (parameter u).
+ * Dense overlapping samples read as one streak, not separate beads.
+ */
+const drawCometAlongPath = (
   ctx: CanvasRenderingContext2D,
   c: Connection,
-  u: number,
   grad: readonly ParsedStop[],
   aMul: number,
+  uHead: number,
+  tailFrac: number,
   fade: number,
 ): void => {
-  const env = Math.sin(u * Math.PI);
-  if (env <= 0.02) return;
-  const p = walkPath(c, u);
-  const col = sampleGradient(grad, u);
-  ctx.fillStyle = rgbToCss(col.rgb, 0.7 * fade * env * col.alpha * aMul);
-  ctx.beginPath();
-  ctx.arc(p.x, p.y, 1.7, 0, TAU);
-  ctx.fill();
-};
-
-/**
- * 3 forward + 3 reverse glowing dots cycling along the path. The reverse set is
- * phase-shifted by a sixth of the period so the two streams interleave instead of
- * piling on top of each other at the midpoint.
- */
-const drawChases = (
-  ctx: CanvasRenderingContext2D,
-  c: Connection,
-  grad: readonly ParsedStop[],
-  aMul: number,
-): void => {
-  const period = c.chasePeriod;
-  const tNow = c.phase === "chase" ? c.pt : c.chaseDur + c.pt;
-  const fade = c.phase === "pulse" ? 1 - c.pt / c.pulseDur : 1;
-  const shift = period / 6;
-  for (let k = 0; k < 3; k++) {
-    const fwd = ((tNow + (k * period) / 3) % period) / period;
-    const rev = 1 - ((tNow + (k * period) / 3 + shift) % period) / period;
-    drawChaseDot(ctx, c, fwd, grad, aMul, fade);
-    drawChaseDot(ctx, c, rev, grad, aMul, fade);
-  }
-};
-
-const drawComet = (
-  ctx: CanvasRenderingContext2D,
-  c: Connection,
-  grad: readonly ParsedStop[],
-  aMul: number,
-): void => {
-  const uHead = c.pt / c.pulseDur;
-  const tailLen = 0.22;
-  for (let i = 0; i < 10; i++) {
-    const u = uHead - (i / 10) * tailLen;
-    if (u < 0) break;
-    const t = 1 - i / 10;
+  if (fade <= 0.02 || tailFrac <= 0) return;
+  const steps = 52;
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const u = uHead - (1 - t) * tailFrac;
+    if (u < 0) continue;
     const p = walkPath(c, u);
     const col = sampleGradient(grad, u);
-    ctx.fillStyle = rgbToCss(col.rgb, t * t * col.alpha * aMul);
+    const head = t * t;
+    const rad = 0.32 + head * 2.35;
+    const a = (0.06 + 0.88 * Math.pow(t, 2.8)) * col.alpha * aMul * fade;
+    ctx.fillStyle = rgbToCss(col.rgb, a);
     ctx.beginPath();
-    ctx.arc(p.x, p.y, 1.8 + t * 1.8, 0, TAU);
+    ctx.arc(p.x, p.y, rad, 0, TAU);
     ctx.fill();
   }
 };
@@ -317,8 +286,17 @@ export class Canvas2DRenderer implements Renderer {
           if (d <= headD) drawDropShadow(ctx, c, d);
         }
         if (u1 > u0) strokeConn(ctx, c, u0, u1);
-        if (c.phase === "chase" || c.phase === "pulse") drawChases(ctx, c, grad, aMul);
-        if (c.phase === "pulse") drawComet(ctx, c, grad, aMul);
+        if (c.phase === "chase" || c.phase === "pulse") {
+          const period = c.chasePeriod;
+          const fade = c.phase === "pulse" ? 1 - c.pt / c.pulseDur : 1;
+          if (c.phase === "chase") {
+            const uHead = (((c.pt % period) + period) % period) / period;
+            drawCometAlongPath(ctx, c, grad, aMul, uHead, 0.24, fade);
+          } else {
+            const uHead = c.pt / c.pulseDur;
+            drawCometAlongPath(ctx, c, grad, aMul, uHead, 0.32, fade);
+          }
+        }
         if (c.phase === "retract") drawRipple(ctx, c, grad, aMul);
       }
     }

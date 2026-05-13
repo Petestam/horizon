@@ -53,6 +53,10 @@ export function coerceParams(raw: unknown): Params | null {
   base.pulseBandHeight = clamp(num(o.pulseBandHeight, base.pulseBandHeight), 0.005, 0.12);
   base.bgColor = typeof o.bgColor === "string" ? o.bgColor : base.bgColor;
   base.labelsEnabled = typeof o.labelsEnabled === "boolean" ? o.labelsEnabled : base.labelsEnabled;
+  if (typeof o.labelText === "string") {
+    const t = o.labelText.replace(/[\u0000-\u001f\u007f]/g, "").slice(0, 128);
+    base.labelText = t.length > 0 ? t : base.labelText;
+  }
 
   if (Array.isArray(o.waveAmps)) {
     for (let i = 0; i < MAX_WAVES; i++) {

@@ -13,7 +13,7 @@ export interface TowerParams {
   spawnInterval: number;
   /** Seconds for the gradient comet to travel origin → endpoint. */
   pulseDur: number;
-  /** Seconds for one chase-dot cycle along the path. */
+  /** Seconds for one comet lap along the path during chase. */
   chasePeriod: number;
 }
 

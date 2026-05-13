@@ -1,14 +1,5 @@
 import type { EventBus } from "./EventBus.js";
 
-const SAMPLE_LABELS = [
-  "kiosk-04 · check-in",
-  "kiosk-12 · ticket scan",
-  "kiosk-07 · membership",
-  "kiosk-19 · payment",
-  "kiosk-22 · sign-up",
-  "kiosk-31 · gate",
-];
-
 let counter = 0;
 
 /**
@@ -17,10 +8,16 @@ let counter = 0;
  */
 export const startKioskMock = (
   bus: EventBus,
-  opts: { minDelayMs?: number; maxDelayMs?: number } = {},
+  opts: {
+    minDelayMs?: number;
+    maxDelayMs?: number;
+    /** Called when each synthetic event fires; use tunable label copy from app state. */
+    getLabel?: () => string;
+  } = {},
 ): (() => void) => {
   const minDelay = opts.minDelayMs ?? 4500;
   const maxDelay = opts.maxDelayMs ?? 9000;
+  const getLabel = opts.getLabel ?? (() => "test · operator");
   let timer = 0;
   let stopped = false;
 
@@ -30,7 +27,7 @@ export const startKioskMock = (
     timer = window.setTimeout(() => {
       bus.emit("kiosk:event", {
         id: `evt-${++counter}`,
-        label: SAMPLE_LABELS[counter % SAMPLE_LABELS.length]!,
+        label: getLabel(),
         ttlMs: 4000 + Math.random() * 2000,
       });
       schedule();
