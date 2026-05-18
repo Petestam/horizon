@@ -1,13 +1,31 @@
 import type { Strand } from "../entities/Strand.js";
 
-export type Phase = "extend" | "chase" | "pulse" | "retract" | "dead";
+export type Phase = "extend" | "bond" | "chase" | "pulse" | "retract" | "dead";
 
 /** Per-connection timings; locked at init so mid-flight tuner changes don't jump in-progress traces. */
 export interface ConnDurations {
   extend: number;
+  /** Held bond beat between extend wrap and the first telemetry burst — reads as "handshake established". */
+  bond: number;
   pulse: number;
   retract: number;
+  /** Time between burst starts during chase. Burst itself is `burstDur` seconds, then a gap until the next burst. */
   chasePeriod: number;
+  /** Single inbound telemetry burst duration. Gap silence = chasePeriod - burstDur. */
+  burstDur: number;
+}
+
+/** Shared L-shape (vertical→horizontal→vertical) geometry. walkPath/pathThrough operate on this shape. */
+export interface PathGeom {
+  ox: number;
+  oy: number;
+  by: number;
+  ex: number;
+  ey: number;
+  l1: number;
+  l2: number;
+  l3: number;
+  total: number;
 }
 
 /**
@@ -20,7 +38,7 @@ export interface ConnDurations {
  * code paths work whether the L runs downward (origin above target) or upward
  * (origin below target, as in the bottom-towers layout).
  */
-export class Connection {
+export class Connection implements PathGeom {
   ox = 0;
   oy = 0;
   ex = 0;
@@ -35,12 +53,20 @@ export class Connection {
   phase: Phase = "extend";
   pt = 0;
   extendDur = 1;
+  bondDur = 0.6;
   pulseDur = 2.5;
   retractDur = 1;
   chasePeriod = 4;
+  burstDur = 0.5;
   chaseDur = 3;
-  /** Distances along this path where it crosses earlier connections from the same tower. */
-  bridges: number[] = [];
+  /** Comet direction along the path. +1 = origin→endpoint (default, "push"), -1 = endpoint→origin ("intel inbound"). */
+  pulseDir: 1 | -1 = 1;
+  /** Counts up while in pulse + retract; renderer reads it to drive the post-resolve shimmer wave. */
+  shimmerT = 0;
+  /** Renderer multiplies shimmer reach + brightness by this. Automate sets it >1 for a larger ripple. */
+  shimmerMul = 1;
+  /** True when spawned by the autonomous sequencer; renderer keeps Morse-style chase for these. */
+  automated = false;
 
   init(
     ox: number,
@@ -63,39 +89,77 @@ export class Connection {
     this.pt = 0;
     this.chaseDur = chaseDur;
     this.extendDur = d.extend;
+    this.bondDur = d.bond;
     this.pulseDur = d.pulse;
     this.retractDur = d.retract;
     this.chasePeriod = d.chasePeriod;
-    this.bridges.length = 0;
+    this.burstDur = d.burstDur;
+    this.pulseDir = 1;
+    this.shimmerT = 0;
+    this.shimmerMul = 1;
+    this.automated = false;
+  }
+
+  /** Demo: switch a freshly-extended connection into a loop of endpoint→origin "intel" pulses. */
+  startInvestigation(): void {
+    this.phase = "chase";
+    this.pt = 0;
+    this.chaseDur = Number.POSITIVE_INFINITY;
+    this.pulseDir = -1;
+  }
+
+  /** Demo: fire one bright origin→endpoint pulse, then the existing ripple+retract. */
+  startResolve(): void {
+    this.phase = "pulse";
+    this.pt = 0;
+    this.pulseDir = 1;
+    this.shimmerT = 0;
   }
 
   private recompute(): void {
-    this.l1 = Math.abs(this.by - this.oy);
-    this.l2 = Math.abs(this.ex - this.ox);
-    this.l3 = Math.abs(this.ey - this.by);
-    this.total = this.l1 + this.l2 + this.l3;
+    recomputePath(this);
   }
 
-  step(dt: number): void {
-    if (this.target) {
-      this.ex = this.target.x;
-      this.ey = this.target.y0;
-      this.by = this.oy + this.byRatio * (this.ey - this.oy);
-      this.recompute();
-    }
+  /** Snap endpoint and elbow from the live target strand; safe to call twice per frame around wave phases. */
+  syncFromTarget(): void {
+    if (!this.target) return;
+    this.ex = this.target.x;
+    this.ey = this.target.y0;
+    this.by = this.oy + this.byRatio * (this.ey - this.oy);
+    this.recompute();
+  }
+
+  /** Phase timing only; pair with {@link syncFromTarget} after wave motion. */
+  advance(dt: number): void {
     this.pt += dt;
+    // Shimmer ring starts only after the outbound resolve pulse reaches the strand.
+    if (
+      this.phase === "retract" ||
+      (this.phase === "pulse" && this.pt >= this.pulseDur)
+    ) {
+      this.shimmerT += dt;
+    }
     if (this.phase === "extend" && this.pt >= this.extendDur) {
-      this.phase = "chase";
+      this.phase = "bond";
       this.pt -= this.extendDur;
+    } else if (this.phase === "bond" && this.pt >= this.bondDur) {
+      this.phase = "chase";
+      this.pt -= this.bondDur;
     } else if (this.phase === "chase" && this.pt >= this.chaseDur) {
       this.phase = "pulse";
       this.pt -= this.chaseDur;
+      this.shimmerT = 0;
     } else if (this.phase === "pulse" && this.pt >= this.pulseDur) {
       this.phase = "retract";
       this.pt -= this.pulseDur;
     } else if (this.phase === "retract" && this.pt >= this.retractDur) {
       this.phase = "dead";
     }
+  }
+
+  step(dt: number): void {
+    this.syncFromTarget();
+    this.advance(dt);
   }
 
   get dead(): boolean {
@@ -109,7 +173,7 @@ export interface Pt {
 }
 
 /** Return the (x,y) point at fraction u ∈ [0,1] along the L-shape (sharp-corner geometry). */
-export const walkPath = (c: Connection, u: number): Pt => {
+export const walkPath = (c: PathGeom, u: number): Pt => {
   const d = (u < 0 ? 0 : u > 1 ? 1 : u) * c.total;
   const dy1 = c.by >= c.oy ? 1 : -1;
   const dy3 = c.ey >= c.by ? 1 : -1;
@@ -119,4 +183,12 @@ export const walkPath = (c: Connection, u: number): Pt => {
     return { x: c.ox + dx * (d - c.l1), y: c.by };
   }
   return { x: c.ex, y: c.by + dy3 * (d - c.l1 - c.l2) };
+};
+
+/** Recompute segment lengths and total from ox/oy/by/ex/ey. Shared by Connection and one-shot pulses. */
+export const recomputePath = (g: PathGeom): void => {
+  g.l1 = Math.abs(g.by - g.oy);
+  g.l2 = Math.abs(g.ex - g.ox);
+  g.l3 = Math.abs(g.ey - g.by);
+  g.total = g.l1 + g.l2 + g.l3;
 };

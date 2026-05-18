@@ -18,10 +18,74 @@
         display: block;
       }
       #overlay-root { position: fixed; inset: 0; pointer-events: none; }
+
+      /*
+       * Persistent stage chrome: pinned to the top inside the 12:5 letterbox.
+       * Position and width come from App.applyResize so edges align with the stage.
+       */
+      #stage-header {
+        position: fixed;
+        left: 0;
+        top: 0;
+        height: 7vh;
+        min-height: 52px;
+        max-height: 104px;
+        padding: 0 clamp(12px, 2.5%, 42px);
+        box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 4vw;
+        background: rgba(166, 182, 238, 0.15);
+        border: 1px solid rgba(217, 217, 217, 0.10);
+        border-bottom-width: 2px;
+        border-radius: 100px;
+        backdrop-filter: blur(6px);
+        color: #fff;
+        pointer-events: none;
+        z-index: 4;
+        white-space: nowrap;
+        font-family: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      }
+      #stage-header .mantra {
+        font-size: clamp(11px, 1.4vh, 22px);
+        font-weight: 400;
+        opacity: 0.92;
+        letter-spacing: 0.01em;
+        flex: 0 0 auto;
+      }
+      #stage-header .lockup {
+        flex: 1 1 auto;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-width: 0;
+      }
+      #stage-header .lockup img {
+        display: block;
+        height: clamp(40px, 5.8vh, 84px);
+        width: auto;
+        max-width: min(88vw, 840px);
+        object-fit: contain;
+        opacity: 0.92;
+      }
     </style>
   </head>
   <body>
     <canvas id="stage"></canvas>
+    <div id="stage-header">
+      <span class="mantra">Run your agentic enterprise</span>
+      <span class="lockup" role="img" aria-label="Cisco Cloud Control">
+        <img
+          src="/cisco-cloud-control-lockup.svg"
+          alt=""
+          width="1056"
+          height="170"
+          decoding="async"
+        />
+      </span>
+      <span class="mantra">Run your agentic enterprise</span>
+    </div>
     <div id="overlay-root"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>

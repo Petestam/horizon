@@ -1,4 +1,4 @@
-import { defaults, type Params } from "./config.js";
+import { defaults, ensureKioskAssignmentCoverage, normalizedLightSources, type Params } from "./config.js";
 
 export type ParamKey = keyof Params;
 type Listener = (changed: ReadonlySet<ParamKey>) => void;
@@ -24,14 +24,17 @@ export class State {
     waveAmps: [...defaults.waveAmps],
     waveLengths: [...defaults.waveLengths],
     waveDirs: [...defaults.waveDirs],
+    kioskAssignments: [...defaults.kioskAssignments],
     gradient: defaults.gradient.map((s) => ({ ...s })),
     behaviors: { ...defaults.behaviors },
+    lightSources: normalizedLightSources(null),
   };
   private listeners = new Set<Listener>();
 
   set<K extends ParamKey>(key: K, value: Params[K]): void {
     if (this.params[key] === value) return;
     this.params[key] = value;
+    if (key === "waves") ensureKioskAssignmentCoverage(this.params);
     this.emit(new Set([key]));
   }
 
@@ -54,8 +57,10 @@ export class State {
       waveAmps: [...next.waveAmps],
       waveLengths: [...next.waveLengths],
       waveDirs: [...(next.waveDirs ?? defaults.waveDirs)],
+      kioskAssignments: [...(next.kioskAssignments ?? defaults.kioskAssignments)],
       gradient: next.gradient.map((s) => ({ ...s })),
       behaviors: { ...defaults.behaviors, ...(next.behaviors ?? {}) },
+      lightSources: normalizedLightSources(next.lightSources ?? null),
     };
     this.emit(new Set(Object.keys(this.params) as ParamKey[]));
   }

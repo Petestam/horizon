@@ -2,7 +2,7 @@ import { type Strand, createStrand, resetStrand } from "../entities/Strand.js";
 import { ObjectPool } from "../entities/pool.js";
 import { STRAND_CAP, type Params } from "../config.js";
 import { mulberry32 } from "../util/math.js";
-import { sampleArc } from "./curves.js";
+import { STRUCTURES } from "./structures.js";
 
 const MOODS = [
   { speed: 0.7, amp: 0.9 },
@@ -12,7 +12,7 @@ const MOODS = [
 const SPRING_K = 24;
 const SPRING_D = 2 * Math.sqrt(SPRING_K);
 
-interface WaveLayer {
+export interface WaveLayer {
   index: number;
   primary: boolean;
   count: number;
@@ -30,6 +30,12 @@ interface WaveLayer {
 
 export class WaveField {
   readonly pool: ObjectPool<Strand>;
+  /**
+   * Invoked after strand horizontal positions update and before vertical wave motion.
+   * Used to snap connection L-shapes to new `strand.x` first, reducing perpendicular
+   * crossings with the vertical wave motion that follows.
+   */
+  afterHorizontal: (() => void) | null = null;
   private width = 0;
   private height = 0;
   private phase = 0;
@@ -108,6 +114,7 @@ export class WaveField {
         const s = this.pool.acquire();
         if (!s) return;
         s.waveIndex = layer.index;
+        s.waveRow = layer.waveRow;
         s.primary = layer.primary;
         s.alpha = layer.alphaFactor;
         s.width = layer.widthFactor;
@@ -156,38 +163,36 @@ export class WaveField {
     const strands = this.pool.getActive();
     const layerCounts: number[] = new Array(layers.length).fill(0);
     for (const s of strands) layerCounts[s.waveIndex]!++;
-    const layerSeen: number[] = new Array(layers.length).fill(0);
-    const span = p.waveSpacing * Math.max(0, p.waves - 1);
-    const wRecip = this.width > 0 ? 1 / this.width : 0;
+
+    const sampler = STRUCTURES[p.waveStructure] ?? STRUCTURES.wave;
+    sampler({
+      strands,
+      layers,
+      layerCounts,
+      p,
+      phase: this.phase,
+      width: this.width,
+      height: this.height,
+      intentX: this.intentX,
+      intentY: this.intentY,
+      intentOn: b.intent,
+      breatheF,
+      breatheA,
+      moodAmp,
+    });
+
+    for (const s of strands) {
+      if (b.reactive) s.vy += s.kick;
+      s.kick = 0;
+      s.age += dt;
+    }
+
+    this.afterHorizontal?.();
 
     for (const s of strands) {
       const layer = layers[s.waveIndex];
       if (!layer) continue;
-      const n = layerCounts[s.waveIndex]!;
-      const seen = layerSeen[s.waveIndex]!++;
-      const t = n <= 1 ? 0.5 : seen / (n - 1);
-      const ampMul = p.waveAmps[layer.waveRow] ?? 1;
-      const lenMul = p.waveLengths[layer.waveRow] ?? 1;
-      const dirMul = p.waveDirs[layer.waveRow] ?? 1;
-      const sample = sampleArc({
-        t,
-        phase: this.phase * dirMul + layer.phaseOffset,
-        freq: (layer.freq * breatheF) / Math.max(0.12, lenMul),
-        amplitude: p.amplitude * layer.ampScale * ampMul * breatheA * moodAmp,
-        centerY: p.fieldOffsetY + layer.rowT * span,
-        width: this.width,
-        height: this.height,
-      });
-
-      let targetY = sample.y;
-      if (b.intent) {
-        const dx = sample.x * wRecip - this.intentX;
-        targetY -= Math.exp(-(dx * dx) / 0.03) * 20;
-      }
-
-      s.x = sample.x;
-      if (b.reactive) s.vy += s.kick;
-      s.kick = 0;
+      const targetY = s.waveTargetY;
       if (b.spring) {
         s.vy += (SPRING_K * (targetY - s.y0) - SPRING_D * s.vy) * dt;
         s.y0 += s.vy * dt;
@@ -195,12 +200,6 @@ export class WaveField {
         s.y0 = targetY;
         s.vy = 0;
       }
-
-      s.hue = t;
-      s.width = p.strokeWidth * layer.widthFactor;
-      s.alpha = layer.alphaFactor;
-      s.length = (p.strandLength + s.lengthJitter * p.strandLengthJitter) * layer.lengthFactor;
-      s.age += dt;
     }
 
     if (b.couple) {

@@ -13,12 +13,19 @@ export class Strand {
   hue = 0;
   primary = true;
   waveIndex = 0;
+  /** Logical wave row (0..p.waves), shared between primary + secondary layers. */
+  waveRow = 0;
   age = 0;
   highlighted = false;
   /** Spring velocity in px/s; only meaningful when behaviors.spring is on. */
   vy = 0;
   /** One-shot impulse (px/s) from towers or labels; consumed each frame when behaviors.reactive is on. */
   kick = 0;
+  /**
+   * Wave sample Y target for this frame; written during horizontal wave motion, consumed
+   * when applying vertical motion so L-connections can sync geometry in between.
+   */
+  waveTargetY = 0;
 
   reset(): void {
     this.x = 0;
@@ -32,10 +39,12 @@ export class Strand {
     this.hue = 0;
     this.primary = true;
     this.waveIndex = 0;
+    this.waveRow = 0;
     this.age = 0;
     this.highlighted = false;
     this.vy = 0;
     this.kick = 0;
+    this.waveTargetY = 0;
   }
 }
 

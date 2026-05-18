@@ -332,6 +332,41 @@ export const perWaveEditor = (
   return { el: wrap, dispose };
 };
 
+export interface SelectSpec<T extends string> {
+  label: string;
+  value: T;
+  options: readonly { value: T; label: string }[];
+  onChange: (v: T) => void;
+}
+
+export interface SelectCtrl<T extends string> {
+  el: HTMLElement;
+  sync: (value: T) => void;
+}
+
+export const select = <T extends string>({ label, value, options, onChange }: SelectSpec<T>): SelectCtrl<T> => {
+  const row = document.createElement("label");
+  row.className = "ctl ctl-select-row";
+  const name = document.createElement("span");
+  name.className = "ctl-name";
+  name.textContent = label;
+  const sel = document.createElement("select");
+  sel.className = "ctl-select";
+  for (const opt of options) {
+    const o = document.createElement("option");
+    o.value = opt.value;
+    o.textContent = opt.label;
+    sel.appendChild(o);
+  }
+  const sync = (v: T) => {
+    sel.value = v;
+  };
+  sel.addEventListener("change", () => onChange(sel.value as T));
+  sync(value);
+  row.append(name, sel);
+  return { el: row, sync };
+};
+
 export interface ToggleSpec {
   label: string;
   value: boolean;

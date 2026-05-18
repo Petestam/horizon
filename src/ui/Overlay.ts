@@ -1,10 +1,17 @@
 import type { State } from "../state.js";
-import { MAX_WAVES, type BehaviorFlags } from "../config.js";
+import {
+  MAX_WAVES,
+  WAVE_STRUCTURES,
+  type BehaviorFlags,
+  type LightSource,
+  type WaveStructure,
+} from "../config.js";
 import {
   slider,
   color,
   collapsibleSection,
   readout,
+  select,
   textInput,
   toggle,
   button,
@@ -145,6 +152,11 @@ export interface OverlayActions {
   clearLabels: () => void;
   fireTower: () => void;
   clearTowers: () => void;
+  unify: () => void;
+  investigate: () => void;
+  resolve: () => void;
+  automate: () => void;
+  resetDemo: () => void;
 }
 
 export const mountOverlay = (
@@ -221,6 +233,22 @@ export const mountOverlay = (
   cfgWrap.append(cfgTitle, cfgSelect, cfgRow);
   panel.appendChild(cfgWrap);
 
+  const STRUCTURE_LABELS: Record<WaveStructure, string> = {
+    wave: "sine wave",
+    parallax: "interstellar parallax",
+    expanding: "expanding grid",
+    tensor: "tensile grid",
+    grow: "growing branches",
+    walls: "light walls",
+  };
+  const wStruct = select<WaveStructure>({
+    label: "structure",
+    value: p.waveStructure,
+    options: WAVE_STRUCTURES.map((v) => ({ value: v, label: STRUCTURE_LABELS[v] })),
+    onChange: (v) => set("waveStructure", v),
+  });
+  syncFromState.push(() => wStruct.sync(state.params.waveStructure));
+
   const wCount = slider({
     label: "count",
     min: 1,
@@ -284,7 +312,7 @@ export const mountOverlay = (
   const wSecD = slider({
     label: "secondary density",
     min: 0,
-    max: 1,
+    max: 4,
     step: 0.02,
     value: p.secondaryDensity,
     onChange: (v) => set("secondaryDensity", v),
@@ -295,6 +323,7 @@ export const mountOverlay = (
     collapsibleSection(
       "Waves",
       true,
+      wStruct.el,
       wCount.el,
       wFieldY.el,
       wAmp.el,
@@ -427,6 +456,64 @@ export const mountOverlay = (
     collapsibleSection("Color", true, grad.el, bg.el, cVig.el, cPy.el, cPh.el),
   );
 
+  const lightDrift = slider({
+    label: "light drift (L↔R)",
+    min: 0,
+    max: 10,
+    step: 0.1,
+    value: p.lightDriftSpeed,
+    onChange: (v) => set("lightDriftSpeed", v),
+  });
+  syncFromState.push(() => lightDrift.sync(state.params.lightDriftSpeed));
+
+  const lightSection = (idx: number, title: string, defaultOpen: boolean): HTMLElement => {
+    const get = () => state.params.lightSources[idx]!;
+    const setLight = <K extends keyof LightSource>(key: K, value: LightSource[K]) =>
+      set(
+        "lightSources",
+        state.params.lightSources.map((l, i) => (i === idx ? { ...l, [key]: value } : l)),
+      );
+    const ls = (
+      label: string,
+      key: "intensity" | "distance" | "spread" | "falloff" | "diffusion",
+      min: number,
+      max: number,
+      step: number,
+    ) => {
+      const c = slider({ label, min, max, step, value: get()[key], onChange: (v) => setLight(key, v) });
+      syncFromState.push(() => c.sync(get()[key]));
+      return c.el;
+    };
+    const en = toggle({
+      label: "enabled",
+      value: get().enabled,
+      onChange: (v) => setLight("enabled", v),
+    });
+    syncFromState.push(() => en.sync(get().enabled));
+    const co = color({ label: "color", value: get().color, onChange: (v) => setLight("color", v) });
+    syncFromState.push(() => co.sync(get().color));
+    return collapsibleSection(
+      title,
+      defaultOpen,
+      en.el,
+      co.el,
+      ls("intensity", "intensity", 0, 1, 0.02),
+      ls("distance", "distance", 0.1, 3, 0.05),
+      ls("spread", "spread", 0.2, 4, 0.05),
+      ls("falloff", "falloff", 0.3, 8, 0.1),
+      ls("diffusion", "diffusion", 0, 1, 0.02),
+    );
+  };
+
+  const lightCount = state.params.lightSources.length;
+
+  panel.appendChild(
+    collapsibleSection("Background lights", true, lightDrift.el, ...Array.from({ length: lightCount }, (_, i) => {
+      const tag = i === 0 ? "base" : i === lightCount - 1 ? "tip" : "mid";
+      return lightSection(i, `Light ${i + 1} (${tag})`, i === 0);
+    })),
+  );
+
   const mSpeed = slider({
     label: "speed",
     min: 0,
@@ -494,12 +581,23 @@ export const mountOverlay = (
   });
   syncFromState.push(() => labelCopy.sync(state.params.labelText));
 
+  const alertScale = slider({
+    label: "alert scale",
+    min: 0.25,
+    max: 3,
+    step: 0.05,
+    value: p.alertScale,
+    onChange: (v) => set("alertScale", v),
+  });
+  syncFromState.push(() => alertScale.sync(state.params.alertScale));
+
   panel.appendChild(
     collapsibleSection(
       "Labels",
       true,
       labelsToggle.el,
       labelCopy.el,
+      alertScale.el,
       buttonRow(
         button("Fire test", () => {
           if (!state.params.labelsEnabled) state.set("labelsEnabled", true);
@@ -550,6 +648,220 @@ export const mountOverlay = (
   });
   syncFromState.push(() => tChase.sync(state.params.towerChasePeriod));
 
+  const tReach = slider({
+    label: "domain reach",
+    min: 0,
+    max: 1,
+    step: 0.05,
+    value: p.towerReach,
+    onChange: (v) => set("towerReach", v),
+  });
+  syncFromState.push(() => tReach.sync(state.params.towerReach));
+
+  const tStroke = slider({
+    label: "line width",
+    min: 0.3,
+    max: 6,
+    step: 0.1,
+    value: p.towerStrokeWidth,
+    onChange: (v) => set("towerStrokeWidth", v),
+  });
+  syncFromState.push(() => tStroke.sync(state.params.towerStrokeWidth));
+
+  const tPulseW = slider({
+    label: "pulse width",
+    min: 0.3,
+    max: 8,
+    step: 0.1,
+    value: p.towerPulseWidth,
+    onChange: (v) => set("towerPulseWidth", v),
+  });
+  syncFromState.push(() => tPulseW.sync(state.params.towerPulseWidth));
+
+  const tPulseTail = slider({
+    label: "pulse length",
+    min: 0.02,
+    max: 0.6,
+    step: 0.01,
+    value: p.towerPulseTailLen,
+    onChange: (v) => set("towerPulseTailLen", v),
+  });
+  syncFromState.push(() => tPulseTail.sync(state.params.towerPulseTailLen));
+
+  const tPulseGlow = slider({
+    label: "pulse glow",
+    min: 0,
+    max: 2,
+    step: 0.05,
+    value: p.towerPulseGlow,
+    onChange: (v) => set("towerPulseGlow", v),
+  });
+  syncFromState.push(() => tPulseGlow.sync(state.params.towerPulseGlow));
+
+  const tPulseLead = slider({
+    label: "pulses ahead",
+    min: 0,
+    max: 4,
+    step: 1,
+    value: p.towerPulseLead,
+    onChange: (v) => set("towerPulseLead", v),
+  });
+  syncFromState.push(() => tPulseLead.sync(state.params.towerPulseLead));
+
+  const tPulseTrail = slider({
+    label: "pulses behind",
+    min: 0,
+    max: 4,
+    step: 1,
+    value: p.towerPulseTrail,
+    onChange: (v) => set("towerPulseTrail", v),
+  });
+  syncFromState.push(() => tPulseTrail.sync(state.params.towerPulseTrail));
+
+  const tPulseSpacing = slider({
+    label: "pulse spacing",
+    min: 0.05,
+    max: 0.6,
+    step: 0.01,
+    value: p.towerPulseSpacing,
+    onChange: (v) => set("towerPulseSpacing", v),
+  });
+  syncFromState.push(() => tPulseSpacing.sync(state.params.towerPulseSpacing));
+
+  const tBond = slider({
+    label: "bond hold (s)",
+    min: 0,
+    max: 3,
+    step: 0.05,
+    value: p.towerBondDur,
+    onChange: (v) => set("towerBondDur", v),
+  });
+  syncFromState.push(() => tBond.sync(state.params.towerBondDur));
+
+  const tBurst = slider({
+    label: "burst dur (s)",
+    min: 0.15,
+    max: 3,
+    step: 0.05,
+    value: p.towerBurstDur,
+    onChange: (v) => set("towerBurstDur", v),
+  });
+  syncFromState.push(() => tBurst.sync(state.params.towerBurstDur));
+
+  const tUnifyDur = slider({
+    label: "unify pulse (s)",
+    min: 0.6,
+    max: 8,
+    step: 0.05,
+    value: p.unifyPulseDur,
+    onChange: (v) => set("unifyPulseDur", v),
+  });
+  syncFromState.push(() => tUnifyDur.sync(state.params.unifyPulseDur));
+
+  const tShimmerR = slider({
+    label: "shimmer radius",
+    min: 0,
+    max: 600,
+    step: 5,
+    value: p.shimmerRadius,
+    onChange: (v) => set("shimmerRadius", v),
+  });
+  syncFromState.push(() => tShimmerR.sync(state.params.shimmerRadius));
+
+  const tShimmerI = slider({
+    label: "shimmer power",
+    min: 0,
+    max: 3,
+    step: 0.05,
+    value: p.shimmerIntensity,
+    onChange: (v) => set("shimmerIntensity", v),
+  });
+  syncFromState.push(() => tShimmerI.sync(state.params.shimmerIntensity));
+
+  const phasePillsToggle = toggle({
+    label: "Show phase pills (debug)",
+    value: p.phasePillsEnabled,
+    onChange: (v) => set("phasePillsEnabled", v),
+  });
+  syncFromState.push(() => phasePillsToggle.sync(state.params.phasePillsEnabled));
+
+  const originGlowExtent = slider({
+    label: "origin glow radius (× dot ø)",
+    min: 8,
+    max: 120,
+    step: 1,
+    value: p.originGlowExtentDots,
+    onChange: (v) => set("originGlowExtentDots", v),
+  });
+  syncFromState.push(() => originGlowExtent.sync(state.params.originGlowExtentDots));
+
+  const originGlowGridStep = slider({
+    label: "origin grid step (× dot ø)",
+    min: 0,
+    max: 20,
+    step: 0.1,
+    value: p.originGlowGridStep,
+    onChange: (v) => set("originGlowGridStep", v),
+  });
+  syncFromState.push(() => originGlowGridStep.sync(state.params.originGlowGridStep));
+
+  const originGlowDot = slider({
+    label: "origin dot size",
+    min: 0.15,
+    max: 1,
+    step: 0.02,
+    value: p.originGlowDotSize,
+    onChange: (v) => set("originGlowDotSize", v),
+  });
+  syncFromState.push(() => originGlowDot.sync(state.params.originGlowDotSize));
+
+  const originGlowStrength = slider({
+    label: "origin glow strength",
+    min: 0,
+    max: 2,
+    step: 0.02,
+    value: p.originGlowStrength,
+    onChange: (v) => set("originGlowStrength", v),
+  });
+  syncFromState.push(() => originGlowStrength.sync(state.params.originGlowStrength));
+
+  const orbAgentsToggle = toggle({
+    label: "orb agent sprites (unify glow)",
+    value: p.orbAgentsEnabled,
+    onChange: (v) => set("orbAgentsEnabled", v),
+  });
+  syncFromState.push(() => orbAgentsToggle.sync(state.params.orbAgentsEnabled));
+
+  const orbAgentsSize = slider({
+    label: "orb agents size",
+    min: 0.25,
+    max: 3,
+    step: 0.05,
+    value: p.orbAgentsSize,
+    onChange: (v) => set("orbAgentsSize", v),
+  });
+  syncFromState.push(() => orbAgentsSize.sync(state.params.orbAgentsSize));
+
+  const orbAgentsBrightness = slider({
+    label: "orb agents brightness",
+    min: 0,
+    max: 2.5,
+    step: 0.05,
+    value: p.orbAgentsBrightness,
+    onChange: (v) => set("orbAgentsBrightness", v),
+  });
+  syncFromState.push(() => orbAgentsBrightness.sync(state.params.orbAgentsBrightness));
+
+  const orbAgentsGlow = slider({
+    label: "orb agents glow",
+    min: 0,
+    max: 3,
+    step: 0.05,
+    value: p.orbAgentsGlow,
+    onChange: (v) => set("orbAgentsGlow", v),
+  });
+  syncFromState.push(() => orbAgentsGlow.sync(state.params.orbAgentsGlow));
+
   panel.appendChild(
     collapsibleSection(
       "Control towers",
@@ -558,6 +870,28 @@ export const mountOverlay = (
       tSpawn.el,
       tPulse.el,
       tChase.el,
+      tBond.el,
+      tBurst.el,
+      tReach.el,
+      tStroke.el,
+      tPulseW.el,
+      tPulseTail.el,
+      tPulseGlow.el,
+      tPulseLead.el,
+      tPulseTrail.el,
+      tPulseSpacing.el,
+      tUnifyDur.el,
+      tShimmerR.el,
+      tShimmerI.el,
+      originGlowExtent.el,
+      originGlowGridStep.el,
+      originGlowDot.el,
+      originGlowStrength.el,
+      phasePillsToggle.el,
+      orbAgentsToggle.el,
+      orbAgentsSize.el,
+      orbAgentsBrightness.el,
+      orbAgentsGlow.el,
       buttonRow(
         button("Fire one", () => {
           if (!state.params.towersEnabled) state.set("towersEnabled", true);
@@ -565,6 +899,30 @@ export const mountOverlay = (
         }),
         button("Clear all", () => actions.clearTowers()),
       ),
+    ),
+  );
+
+  const ambientToggle = toggle({
+    label: "ambient loop (Unify→Alert→Investigate→Resolve→Automate)",
+    value: p.ambientDemo,
+    onChange: (v) => set("ambientDemo", v),
+  });
+  syncFromState.push(() => ambientToggle.sync(state.params.ambientDemo));
+
+  panel.appendChild(
+    collapsibleSection(
+      "Demo  ·  1 unify  2 investigate  3 resolve  4 automate  0 reset",
+      true,
+      ambientToggle.el,
+      buttonRow(
+        button("Unify", () => actions.unify()),
+        button("Investigate", () => actions.investigate()),
+      ),
+      buttonRow(
+        button("Resolve", () => actions.resolve()),
+        button("Automate", () => actions.automate()),
+      ),
+      buttonRow(button("Reset demo", () => actions.resetDemo())),
     ),
   );
 
