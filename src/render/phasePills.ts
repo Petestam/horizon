@@ -18,28 +18,28 @@ export interface PhasePillRect {
   label: string;
 }
 
-export const phaseLabelForTower = (t: Tower): string => {
+export const phaseLabelForTower = (t: Tower): string | null => {
   if (t.conns.length > 0) {
     let top = t.conns[0]!;
     for (const c of t.conns) if (PHASE_RANK[c.phase] > PHASE_RANK[top.phase]) top = c;
     return phaseLabelForConnection(top);
   }
   if (t.unifyPhasePill) return "unifying";
-  return "idle";
+  return null;
 };
 
-export const phaseLabelForConnection = (c: Connection): string => {
+export const phaseLabelForConnection = (c: Connection): string | null => {
   switch (c.phase) {
     case "extend":
     case "bond":
-      return "idle";
+      return null;
     case "chase":
       return c.automated ? "auto · agent" : "investigating";
     case "pulse":
     case "retract":
       return "resolving";
     default:
-      return "idle";
+      return null;
   }
 };
 
@@ -55,6 +55,7 @@ export const layoutPhasePills = (
   for (let kiosk = 0; kiosk < towers.length; kiosk++) {
     const t = towers[kiosk]!;
     const label = phaseLabelForTower(t);
+    if (label === null) continue;
     const w = textWidth(label) + PHASE_PILL_PAD_X * 2;
     const orbR = 3.5 + 6 * Math.max(0, Math.min(1, t.originGrid));
     let x = t.x - w / 2;
